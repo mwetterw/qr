@@ -2,24 +2,25 @@
 
 import unittest
 
-from bch import BinaryBCH
+from bch import BCH
+from bch import BchDecodingFailure
 
 class TestSyndromes(unittest.TestCase):
     def test_syndrome_zero(self):
         # Example from a valid QR Code Format
-        bin_bch = BinaryBCH(4, 5, 3, 0)
+        bin_bch = BCH(4, 5, 3, 0)
         self.assertEqual(bin_bch.syndrome(1, 0b001111010110010), 0)
 
     def test_syndrome_one_only_without_any_alpha(self):
         # Same QR Code Format as above, but with one error added in it
-        bin_bch = BinaryBCH(4, 5, 3, 0)
+        bin_bch = BCH(4, 5, 3, 0)
         self.assertEqual(bin_bch.syndrome(1, 0b001111010110011), 1)
 
     def test_syndromes_gf16_book_example_6_16_p261(self):
         R = 0b100001010
-        EXPECTED_SYNDROMES = [1 << 12, 1 << 9, 1 << 3, 1 << 3, 0, 1 << 6]
+        EXPECTED_SYNDROMES = [15, 10, 8, 8, 0, 12]
 
-        bin_bch = BinaryBCH(4, 5, 3, 0)
+        bin_bch = BCH(4, 5, 3, 0)
         self.assertEqual(bin_bch.syndromes(R), EXPECTED_SYNDROMES)
 
     def test_syndromes_gf32_book_example_6_12_p253(self):
@@ -30,9 +31,9 @@ class TestSyndromes(unittest.TestCase):
         K = 21
         T = 2
         EXPECTED_SYNDROMES_C = [0, 0, 0, 0]
-        EXPECTED_SYNDROMES_R = [1 << 17, 1 << 3, 1, 1 << 6]
+        EXPECTED_SYNDROMES_R = [19, 8, 1, 10]
 
-        bin_bch = BinaryBCH(M, K, T, G)
+        bin_bch = BCH(M, K, T, G)
         self.assertEqual(bin_bch.syndromes(C), EXPECTED_SYNDROMES_C)
         self.assertEqual(bin_bch.syndromes(R), EXPECTED_SYNDROMES_R)
 
@@ -45,8 +46,8 @@ class TestSyndromes(unittest.TestCase):
         G = 0b111010001
         T = 2
         EXPECTED_SYNDROMES_C = [0, 0, 0, 0]
-        EXPECTED_SYNDROMES_R = [1 << 14, 1 << 13, 1 << 7, 1 << 11]
+        EXPECTED_SYNDROMES_R = [9, 13, 11, 14]
 
-        bin_bch = BinaryBCH(M, K, T, G)
+        bin_bch = BCH(M, K, T, G)
         self.assertEqual(bin_bch.syndromes(C), EXPECTED_SYNDROMES_C)
         self.assertEqual(bin_bch.syndromes(R), EXPECTED_SYNDROMES_R)

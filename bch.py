@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-import math
-
 from galois import BinaryGaloisField
 
-class BinaryBCH:
+class BchDecodingFailure(Exception):
+    pass
+
+class BCH:
+    """t-errors correcting Primitive Narrow-sense BCH (2^m - 1, k)"""
+
     def __init__(self, m, k, t, g):
         self.n = 2**m - 1
         self.k = k
@@ -11,23 +14,19 @@ class BinaryBCH:
         self.g = g
         self.gf = BinaryGaloisField(m)
 
+    def binary_to_list(self, n):
+        return list(reversed([1 if digit=='1' else 0 for digit in bin(n)[2:]]))
+
+    def list_to_binary(self, l):
+        return int(''.join(map(str, l)), 2)
+
     def syndrome(self, j, r):
-        s = 0
-        if r:
-            for pos in range (0, int(math.log(r, 2)) + 1):
-                if not (r >> pos) & 1:
-                    continue
-
-                alpha = self.gf.log_to_vector[(pos * j) % self.n]
-                s ^= alpha
-        alphas = self.gf.vector_to_log[s] if s else 0
-
-        poly_constant = 1 if s == 1 else 0
-        poly_alpha = (1 << alphas) if alphas else 0
-        return poly_alpha | poly_constant
+        poly = self.binary_to_list(r)
+        return self.gf.gf_poly_eval(poly, self.gf.gf_pow(2, j))
 
     def syndromes(self, r):
-        s = [0 for j in range(2*self.t)]
+        s = [0] * (2 * self.t)
+
         for j in range(len(s)):
             s[j] = self.syndrome(j + 1, r)
         return s
