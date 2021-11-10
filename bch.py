@@ -115,5 +115,34 @@ class BCH:
 
 
     def decode(self, r):
-        s = self.syndromes(r)
-        print(s)
+        syndromes = self.syndromes(r)
+
+        errors_detected = sum(syndromes) != 0
+
+        if not errors_detected:
+            return errors_detected, r
+
+        error_locator_poly = self.berlekamp_massey(syndromes)
+
+        if len(error_locator_poly) - 1 > self.t:
+            raise BchDecodingFailure("Too many errors")
+
+        error_locator_poly_roots = self.chien_search(error_locator_poly)
+
+        if len(error_locator_poly_roots) != len(error_locator_poly) - 1:
+            raise BchDecodingFailure("Too many errors")
+
+        error_locators = [self.gf.gf_inv(j) for j in error_locator_poly_roots]
+        error_indexes = [self.gf.vector_to_log[j] for j in error_locators]
+
+        correction = 0
+        for error_idx in error_indexes:
+            correction |= (1 << error_idx)
+
+        corrected = r ^ correction
+
+        syndromes_after_correction = self.syndromes(corrected)
+        if sum(syndromes_after_correction):
+            raise BchDecodingFailure("Syndromes not null after correction")
+
+        return errors_detected, corrected
