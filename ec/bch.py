@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from galois import BinaryGaloisField
+from ec.galois import BinaryGaloisField
 
 class BchDecodingFailure(Exception):
     pass

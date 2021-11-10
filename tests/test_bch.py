@@ -2,8 +2,8 @@
 
 import unittest
 
-from bch import BCH
-from bch import BchDecodingFailure
+from ec.bch import BCH
+from ec.bch import BchDecodingFailure
 
 class TestSyndromes(unittest.TestCase):
     def test_syndrome_zero(self):
@@ -144,10 +144,7 @@ class TestDecode(unittest.TestCase):
     def test_decode_qr_code_format_too_many_errors(self):
         for format_raw in self.QR_CODE_FORMATS:
             format_ = format_raw ^ self.QR_CODE_FORMAT_MASK
-            format_wrong = format_ ^ 0b11100001000
-            # format_wrong = format_ ^ 0b11100000010
-            print(format_wrong)
+            format_wrong = format_ ^ 0b11110000000
+
             with self.assertRaises(BchDecodingFailure):
                 error, corrected = self.QR_BCH.decode(format_wrong)
-                print(f"originall: {format_:015b}")
-                print(f"corrected: {corrected:015b}")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import unittest
 
-from galois import BinaryGaloisField
+from ec.galois import BinaryGaloisField
 
 GF8 = BinaryGaloisField(3)
 GF16 = BinaryGaloisField(4)
