@@ -31,6 +31,50 @@ class BCH:
             s[j] = self.syndrome(j + 1, r)
         return s
 
+    def berlekamp_massey(self, syndromes):
+        """Implements the Berlekamp-Massey algorithm
+
+        This algo is used to compute sigma(x), the error locator polynomial.
+        The inverse-roots of this polynomial give us the location of the errors.
+        """
+
+        sigma = [1] # Current error locator polynomial called sigma(x)
+        sigma_old = sigma # Previous sigma
+
+        lfsr_len = 0 # Current length of the LFSR
+        discrep_old = 1 # Previous discrepency
+        l = 1 # Amount of shift in update (syndnum - m)
+
+        for syndnum in range(1, len(syndromes) + 1):
+            # Compute discrepency
+            sum_ = 0
+            [sum_ := sum_ ^ self.gf.gf_mul(sigma[i], syndromes[syndnum - i - 1]) for i in range(1, lfsr_len + 1)]
+            discrep = syndromes[syndnum - 1] ^ sum_
+
+            # No change in polynomial
+            if not discrep:
+                l = l + 1
+                continue
+
+            # Change in polynomial
+
+            sigma_backup = sigma
+            coeff = self.gf.gf_mul(discrep, self.gf.gf_inv(discrep_old))
+            coeff_x_l = [0] * l + [coeff] # Create a polynomial of degree l equaling to coeff*X^l
+            sigma = self.gf.gf_poly_add(sigma, self.gf.gf_poly_mul(coeff_x_l, sigma_old))
+
+            # No-length change in update
+            if 2 * lfsr_len >= syndnum:
+                l = l + 1
+                continue
+
+            # Update with length change
+            lfsr_len = syndnum - lfsr_len
+            sigma_old = sigma_backup
+            discrep_old = discrep
+            l = 1
+        return sigma
+
     def decode(self, r):
         s = self.syndromes(r)
         print(s)

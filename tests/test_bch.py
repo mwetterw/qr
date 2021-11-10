@@ -51,3 +51,19 @@ class TestSyndromes(unittest.TestCase):
         bin_bch = BCH(M, K, T, G)
         self.assertEqual(bin_bch.syndromes(C), EXPECTED_SYNDROMES_C)
         self.assertEqual(bin_bch.syndromes(R), EXPECTED_SYNDROMES_R)
+
+class TestBerlekampMassey(unittest.TestCase):
+    def test_berlekamp_massey_gf32_book_example_6_12_p253(self):
+        C = 0b11101101110100010101111001
+        R = 0b11101100110100010101101001
+        G = 0b11101101001
+        M = 5
+        K = 21
+        T = 2
+
+        EXPECTED_SIGMA = [1, 19, 21]
+
+        bin_bch = BCH(M, K, T, G)
+        syndromes = bin_bch.syndromes(R)
+        sigma = bin_bch.berlekamp_massey(syndromes)
+        self.assertListEqual(sigma, EXPECTED_SIGMA)
