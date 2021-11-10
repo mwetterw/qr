@@ -75,6 +75,45 @@ class BCH:
             l = 1
         return sigma
 
+    def brute_force_search(self, sigma):
+        """Implement a naive Brute Force Search for roots
+
+        This algo is to determine the roots of polynomials defined over a finite field.
+        We can use it to find the roots of the error-locator polynomials for BCH or RS codes.
+        The inverse of those roots are called the error locators.
+        """
+
+        roots = []
+
+        for i in range (1, self.n + 1):
+            if not self.gf.gf_poly_eval(sigma, i):
+                roots.append(i)
+        return roots
+
+
+    def chien_search(self, sigma):
+        """Implement the Chien Search (of 錢天問, Robert Tienwen CHIEN)
+
+        This is a fast algo for determining roots of polynomials defined over a finite field.
+        We can use it to find the roots of the error-locator polynomials for BCH or RS codes.
+        The inverse of those roots are called the error locators.
+        """
+
+        roots = []
+
+        compute = sigma[1:]
+        mul = [self.gf.log_to_vector[exponent] for exponent in range(1, len(sigma))]
+
+        for i in range (0, self.n):
+            sum_ = 0
+            [sum_ := sum_ ^ elem for elem in compute]
+            if sum_ == 1:
+                roots.append(self.gf.log_to_vector[i])
+
+            compute = [self.gf.gf_mul(compute[x], mul[x]) for x in range(len(compute))]
+        return roots
+
+
     def decode(self, r):
         s = self.syndromes(r)
         print(s)
