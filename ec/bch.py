@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 from ec.galois import BinaryGaloisField
 
 class BchDecodingFailure(Exception):

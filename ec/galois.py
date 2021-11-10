@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 class BinaryGaloisField:
     """Represent a Binary Galois Field
 
