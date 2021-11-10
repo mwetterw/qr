@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 
 class BinaryGaloisField:
-    # This class only implements Binary Galois Fields. Therefore, Q always equals 2
-    # We only support GF(2^m), the Galois field extension of GF(2)
-    Q = 2
+    """Represent a Binary Galois Field
+
+    This class implements Binary Galois Fields. Therefore, the characteristic
+    of the field, always equals 2 (we only support GF(2^m), the Galois field
+    extensions of GF(2)).
+    It allows us to do computations in that algebraic structure.
+    """
 
     # Primitive polynomials for GF(2^(idx+3))
     PRIMITIVE_POLY = [
@@ -33,7 +37,7 @@ class BinaryGaloisField:
         self.m = m
         self.n = 2**m - 1
 
-        # Only generates table if it doesn't already exist
+        # Only generate table if it doesn't already exist
         # And then always make the dynamic instance table point to the static pre-computed one as syntactic sugar
         if not self.LOG_TO_VECTOR_TABLES[m - self.M_MIN]:
             self.LOG_TO_VECTOR_TABLES[m - self.M_MIN] = self.generate_log_to_vector()
@@ -70,8 +74,10 @@ class BinaryGaloisField:
 
         return vector_to_log
 
+    # Note that gf_add and gf_sub are both the same as a XOR (^ operator)
+
     def gf_mul(self, x, y):
-        """Multiplies 2 GF(2^m) number together
+        """Multiply 2 GF(2^m) number together
 
         To multiply 2 GF number, we can convert it to alpha notation and add their powers together.
         Finally, we convert it back to the vector notation
@@ -81,7 +87,7 @@ class BinaryGaloisField:
         return self.log_to_vector[(self.vector_to_log[x] + self.vector_to_log[y]) % self.n]
 
     def gf_div(self, x, y):
-        """Divides 2 GF(2^m) number together
+        """Divide 2 GF(2^m) number together
 
         To divide 2 GF numbers, we convert them to alpha notation and substract their powers.
         But we cannot have negative powers, and power need to be between [0, self.n]
@@ -95,7 +101,7 @@ class BinaryGaloisField:
         return self.log_to_vector[(self.vector_to_log[x] + self.n  - self.vector_to_log[y]) % self.n]
 
     def gf_pow(self, x, power):
-        """Computes the power of a GF(2^m) number
+        """Compute the power of a GF(2^m) number
 
         To compute the power of a GF number, we convert it to alpha notation
         and multiply its power with the power of the function call.
@@ -109,7 +115,7 @@ class BinaryGaloisField:
         return self.log_to_vector[(self.vector_to_log[x] * power) % self.n]
 
     def gf_inv(self, x):
-        """Computes the inverse of a GF(2^m) number
+        """Compute the inverse of a GF(2^m) number
 
         To compute the inverse of a GF number, we convert it to alpha notation.
         Then, we subtract the cardinality of the Galois Field from that alpha
@@ -149,4 +155,19 @@ class BinaryGaloisField:
     def gf_poly_mul(self, poly1, poly2):
         """Multiply 2 GF(2^m) polynomials"""
 
-        res_poly = [0]
+        res_poly = [0] * (len(poly1) + len(poly2) - 1)
+
+        for deg1, coeff1 in enumerate(poly1):
+            for deg2, coeff2 in enumerate(poly2):
+                res_poly[deg1 + deg2] ^= self.gf_mul(coeff1, coeff2)
+
+        return res_poly
+
+    def gf_poly_eval(self, poly, x):
+        """Evaluate a polynomial at a particular value x"""
+
+        res = poly[-1]
+        for idx in range(len(poly) - 2, -1, -1):
+            res = self.gf_mul(res, x) ^ poly[idx]
+
+        return res

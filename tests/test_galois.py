@@ -88,3 +88,6 @@ class TestBinaryGaloisFieldPoly(unittest.TestCase):
         EXPECTED = [6, 2, 0, 1, 0, 7, 0, 6, 1]
 
         self.assertListEqual(GF256.gf_poly_add(POLY1, POLY2), EXPECTED)
+
+    def test_poly_eval(self):
+        self.assertEqual(GF256.gf_poly_eval([7, 5, 2, 3], 5), 203)
