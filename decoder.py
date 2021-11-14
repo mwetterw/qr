@@ -211,31 +211,38 @@ class QrCodeDecoder:
 
             # We've reached symbol bounds, let's reverse the middle loop direction
             up = not up
-        print()
 
     def deinterlace_blocks(self):
         ec_config = consts.EC_BLOCKS[self.version][self.ec_level]
         print(f"This QR code version uses following blocks configuration: {ec_config}")
 
-        nb_blocks = 0
+        word_generator = self.unfold_modules_stream()
+
         blocks = []
-        for nb, (n, k, t) in ec_config:
+        max_words_per_block = [0, 0]
+        for nb, (n, k, _) in ec_config:
+            max_words_per_block[0] = max(max_words_per_block[0], k)
+            max_words_per_block[1] = max(max_words_per_block[1], n - k)
             for _ in range(nb):
                 blocks.append([bytearray(k), bytearray(n - k)])
-            nb_blocks += nb
 
-        block_idx, word_idx, is_error_word = 0, 0, 0
-
-        for byte in self.unfold_modules_stream():
-            blocks[block_idx][is_error_word][word_idx] = byte
-            block_idx += 1
-            if block_idx == nb_blocks:
-                word_idx += 1
-                if not is_error_word and word_idx == len(blocks[block_idx - 1][0]):
-                    is_error_word = 1
-                    word_idx = 0
+        for is_error_word in range(2):
+            for word_idx in range(max_words_per_block[is_error_word]):
                 block_idx = 0
+                for nb, (n, k, _) in ec_config:
+                    nb_words = [k, n - k]
 
+                    # When some blocks are shorter than others, we need to skip
+                    # non-existing words for those blocks
+                    if word_idx == nb_words[is_error_word]:
+                        block_idx += nb
+                        continue
+
+                    for _ in range(nb):
+                        blocks[block_idx][is_error_word][word_idx] = next(word_generator)
+                        block_idx += 1
+
+        print()
         print("- Deinterlacing blocks")
         print(f"    {blocks}")
         self.blocks = blocks
