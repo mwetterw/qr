@@ -129,25 +129,23 @@ class QrCodeDecoder:
 
     def is_function_pattern(self, row, col):
         # NE Position Detection Pattern & Spacer
-        # NE part of NESW Version
+        # NE part of NESW Format
         if row <= 8 and col >= len(self.qr) - 8:
             return True
 
-        # TODO: Version (V >= 7)
-
-        # Timing Patterns (Horizontal and Vertical)
-        if row == 6 or col == 6:
+        # NW Position Detection Pattern & Spacer
+        # NW Format
+        if row <= 8 and col <= 8:
             return True
 
         # SW Position Detection Pattern & Spacer
-        # SW part of NESW Version
+        # SW part of NESW Format
         # The Dark Module (4V + 9, 8)
         if row >= len(self.qr) - 8 and col <= 8:
             return True
 
-        # NW Position Detection Pattern & Spacer
-        # NW Version
-        if row <= 8 and col <= 8:
+        # Timing Patterns (Horizontal and Vertical)
+        if row == 6 or col == 6:
             return True
 
         if self.version < 2:
@@ -158,6 +156,18 @@ class QrCodeDecoder:
             if row >= ap_center_row - 2 and row <= ap_center_row + 2 \
                     and col >= ap_center_col - 2 and col <= ap_center_col + 2:
                 return True
+
+        if self.version < 7:
+            return False
+
+        # Version (V >= 7)
+        if row >= 0 and row <= 5 and col >= len(self.qr) - 11 \
+                and col <= len(self.qr) - 9:
+            return True
+
+        if col >= 0 and col <= 5 and row >= len(self.qr) - 11 \
+                and row <= len(self.qr) - 9:
+            return True
 
         return False
 
