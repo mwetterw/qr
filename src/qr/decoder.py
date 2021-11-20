@@ -59,21 +59,21 @@ class QrCodeDecoder:
         nw = 0
         swne = 0
 
-        # Read horizontal part of NW version and vertical part of SWNE version
+        # Read horizontal part of NW format and vertical part of SWNE format
         for i in range(8):
-            # Skip Vertical Timing Pattern for NW Version
+            # Skip Vertical Timing Pattern for NW format
             if i != 6:
                 nw = (nw << 1) | self.qr[8][i]
-            # Skip The Dark Module for SWNE Version
+            # Skip The Dark Module for SWNE format
             if i != 7:
                 swne = (swne << 1) | self.qr[len(self.qr) - 1 - i][8]
 
-        # Read vertical part of NW version and horizontal part of SWNE version
+        # Read vertical part of NW format and horizontal part of SWNE format
         for i in range(9):
-            # Skip Horizontal Timing Pattern for NW Version
+            # Skip Horizontal Timing Pattern for NW format
             if 8 - i != 6:
                 nw = (nw << 1) | self.qr[8 - i][8]
-            # Skip out of bounds module for SWNE Version
+            # Skip out of bounds module for SWNE format
             if i <= 7:
                 swne = (swne << 1) | self.qr[8][len(self.qr) - 8 + i]
 
