@@ -9,19 +9,12 @@ class QrCodeDecoder:
 
     def __init__(self, qr):
         self.load(qr)
-        print("Computing version...")
         self.get_version()
         self.compute_alignment_patterns()
         self.compute_function_patterns_mask()
-        print()
-        print("Reading format...")
         self.decode_format()
-        print("Unmasking...")
         self.unmask()
-        print()
-        print("Extracting blocks...")
         self.deinterlace_blocks()
-        print("Splitting data blocks into data segments...")
         self.split_data_blocks_into_segments()
 
     def load(self, qr):
@@ -59,7 +52,6 @@ class QrCodeDecoder:
             raise ValueError("Invalid QR code matrix size")
 
         self.version = int(version)
-        print(f'Version: {self.version}')
 
     def compute_alignment_patterns(self):
         ap_db = consts.ALIGNMENT_PATTERNS[self.version]
@@ -144,49 +136,34 @@ class QrCodeDecoder:
             if i <= 7:
                 swne = (swne << 1) | self.qr[8][self.size - 8 + i]
 
-        return nw, swne
+        return [nw, swne]
 
     def decode_format(self):
-        nw, swne = self.unfold_formats()
-        formats = [("NW", nw), ("SWNE", swne)]
+        formats = self.unfold_formats()
         valid_formats = []
 
-        for location, format_raw in formats:
-            print(f"- Processing {location} format")
-            print(f"    Raw:      {format_raw:015b}")
+        for format_raw in formats:
             format_ = format_raw ^ consts.FORMAT_MASK_PATTERN
-            print(f"    Unmasked: {format_:015b}")
 
             try:
                 err, format_ = consts.BCH_FORMAT.decode(format_)
             except(BchDecodingFailure):
-                print(f'    Format has non-recoverable errors')
                 continue
-
-            if err:
-                print(f'    Format had errors -> Corrected to {format_:015b}')
-
 
             ec_level = (format_ >> (consts.FORMAT_EC_BIT_LEN + consts.FORMAT_DATA_MP_BIT_LEN)) & ((1 << consts.FORMAT_DATA_EC_BIT_LEN) - 1)
             mask_pattern = (format_ >> consts.FORMAT_EC_BIT_LEN) & ((1 << consts.FORMAT_DATA_MP_BIT_LEN) - 1)
-            valid_formats.append((location, format_, ec_level, mask_pattern))
-            print(f'    EC Level = {consts.EC_LEVEL[ec_level]} ({ec_level:02b})')
-            print(f'    Mask Pattern = {mask_pattern:03b}')
-
+            valid_formats.append((format_, ec_level, mask_pattern))
 
         if not valid_formats:
             raise ValueError("Both formats have non-recoverable errors")
 
-        if len(valid_formats) == 2 and valid_formats[0][1] != valid_formats[1][1]:
+        if len(valid_formats) == 2 and valid_formats[0][0] != valid_formats[1][0]:
             raise ValueError("Formats disagree")
 
-        location, format_, ec_level, mask_pattern = valid_formats[0]
+        # Authoritative format is first correct one found (NW, or SWNE if NW was unrecoverable)
+        _, ec_level, mask_pattern = valid_formats[0]
         self.ec_level = ec_level
         self.mask_pattern = mask_pattern
-        print(f'Choosing {location} as the authoritative format')
-        print(f'EC Level = {consts.EC_LEVEL[self.ec_level]} ({self.ec_level:02b})')
-        print(f'Mask Pattern = {self.mask_pattern:03b}')
-        print()
 
     def unmask(self):
         for row in range(self.size):
@@ -199,9 +176,6 @@ class QrCodeDecoder:
         up = True
         bit = 7
         byte = 0
-
-        print("- Unfolding modules stream into bytes")
-        print("    ", end="")
 
         # Outer loop: for each "column couple"
         for column_right in range(self.size - 1, 0, -2):
@@ -229,7 +203,6 @@ class QrCodeDecoder:
                     bit -= 1
                     if bit == -1:
                         yield byte
-                        print(f"{byte:02x}", end=" ")
                         byte = 0
                         bit = 7
 
@@ -238,7 +211,6 @@ class QrCodeDecoder:
 
     def deinterlace_blocks(self):
         ec_config = consts.EC_BLOCKS[self.version][self.ec_level]
-        print(f"This QR code version uses following blocks configuration: {ec_config}")
 
         word_generator = self.unfold_modules_stream()
 
@@ -266,22 +238,14 @@ class QrCodeDecoder:
                         blocks[block_idx][is_error_word][word_idx] = next(word_generator)
                         block_idx += 1
 
-        print()
-        print("- Deinterlacing blocks")
-        print(f"    {blocks}")
         self.blocks = blocks
-        print()
 
     def split_data_blocks_into_segments(self):
-        print("- Generating data bitstream")
         bitstream = ""
         for block in self.blocks:
             for byte in block[0]:
                 bitstream += format(byte, '08b')
 
-        print(f"    {bitstream}")
-
-        print("- Splitting bitstream to segments")
         data = ""
         end = 0
         while True:
@@ -289,23 +253,23 @@ class QrCodeDecoder:
             end = start + consts.DATA_MODE_INDICATOR_BIT_LEN
 
             if end > len(bitstream):
-                print("    Bitstream exhaustion (terminator implied)")
+                print("Bitstream exhaustion (terminator implied)")
                 break
 
             mode = int(bitstream[start:end], 2)
 
             if mode == consts.DataModeIndicator.TERMINATOR:
-                print("    Terminator")
+                print("Terminator")
                 break
 
-            print("    Segment")
-            print(f"        Mode: {consts.DATA_MODE_INDICATOR[mode]}")
+            print("Segment")
+            print(f"    Mode: {consts.DATA_MODE_INDICATOR[mode]}")
 
             # Determine the number of characters encoded
             start = end
             end = start + consts.char_count_bit_len(self.version, mode)
             char_count = int(bitstream[start:end], 2)
-            print(f"        Char count: {char_count}")
+            print(f"    Char count: {char_count}")
 
             if mode == consts.DataModeIndicator.EIGHTBITBYTE:
                 # FIXME: Add protection for crazy char_count
@@ -314,7 +278,7 @@ class QrCodeDecoder:
                     start = end
                     end = start + 8
                     seg_data[char_idx] = int(bitstream[start:end], 2)
-                print(f"        {seg_data}")
+                print(f"    {seg_data}")
                 data += str(seg_data.decode())
             elif mode == consts.DataModeIndicator.ALPHANUMERIC:
                 seg_data = ""
@@ -328,7 +292,7 @@ class QrCodeDecoder:
                     char2 = double_char % 45
                     seg_data += consts.BASE45[char1]
                     seg_data += consts.BASE45[char2]
-                print(f"        {seg_data}")
+                print(f"    {seg_data}")
                 data += seg_data
             else:
                 raise ValueError("This segment mode is not supported")
