@@ -34,8 +34,7 @@ class QrCodeDecoder:
             rows = qr
 
         height = len(rows)
-
-        qr = [None] * height
+        qr = [[0] * height for _ in range(height)]
 
         for row_idx, row in enumerate(rows):
             if load_from_file:
@@ -44,8 +43,6 @@ class QrCodeDecoder:
             if len(row) != height:
                 raise ValueError("QR Matrix needs to be a square")
 
-            qr[row_idx] = [None] * height
-
             for col_idx, module in enumerate(row):
                 module_int = int(module)
                 if module_int not in [0, 1]:
@@ -53,9 +50,10 @@ class QrCodeDecoder:
                 qr[row_idx][col_idx] = module_int
 
         self.qr = qr
+        self.size = height
 
     def get_version(self):
-        version = (len(self.qr) - 21) / 4 + 1
+        version = (self.size - 21) / 4 + 1
 
         if not version.is_integer():
             raise ValueError("Invalid QR code matrix size")
@@ -83,14 +81,14 @@ class QrCodeDecoder:
         self.alignment_patterns = my_ap
 
     def compute_function_patterns_mask(self):
-        self.fp_mask = [[0] * len(self.qr) for _ in range(len(self.qr))]
+        self.fp_mask = [[0] * self.size for _ in range(self.size)]
 
         # Finder Patterns (Position Detection Patterns + Spacers)
         # Formats
         # The Dark Module
         for i in range(9):
             for j in range(8):
-                j_mirror = len(self.qr) - 8 + j
+                j_mirror = self.size - 8 + j
 
                 self.fp_mask[i][j] = 1
                 self.fp_mask[i][j_mirror] = 1
@@ -99,7 +97,7 @@ class QrCodeDecoder:
             self.fp_mask[i][8] = 1
 
         # Timing Patterns
-        for i in range(8, len(self.qr) - 8):
+        for i in range(8, self.size - 8):
             self.fp_mask[6][i] = 1
             self.fp_mask[i][6] = 1
 
@@ -118,7 +116,7 @@ class QrCodeDecoder:
         # Versions
         for i in range(6):
             for j in range(3):
-                j_mirror = len(self.qr) - 11 + j
+                j_mirror = self.size - 11 + j
 
                 self.fp_mask[j_mirror][i] = 1
                 self.fp_mask[i][j_mirror] = 1
@@ -135,7 +133,7 @@ class QrCodeDecoder:
                 nw = (nw << 1) | self.qr[8][i]
             # Skip The Dark Module for SWNE format
             if i != 7:
-                swne = (swne << 1) | self.qr[len(self.qr) - 1 - i][8]
+                swne = (swne << 1) | self.qr[self.size - 1 - i][8]
 
         # Read vertical part of NW format and horizontal part of SWNE format
         for i in range(9):
@@ -144,7 +142,7 @@ class QrCodeDecoder:
                 nw = (nw << 1) | self.qr[8 - i][8]
             # Skip out of bounds module for SWNE format
             if i <= 7:
-                swne = (swne << 1) | self.qr[8][len(self.qr) - 8 + i]
+                swne = (swne << 1) | self.qr[8][self.size - 8 + i]
 
         return nw, swne
 
@@ -206,14 +204,14 @@ class QrCodeDecoder:
         print("    ", end="")
 
         # Outer loop: for each "column couple"
-        for column_right in range(len(self.qr) - 1, 0, -2):
+        for column_right in range(self.size - 1, 0, -2):
             # Skip Vertical Timing Pattern
             if column_right <= 6:
                 column_right = column_right - 1
 
             # Configure middle loop range depending on whether we are going up or down
-            row_start = len(self.qr) - 1 if up else 0
-            row_end = -1 if up else len(self.qr)
+            row_start = self.size - 1 if up else 0
+            row_end = -1 if up else self.size
             row_dir = -1 if up else 1
 
             # Middle loop: Row up up up, or row down down down
