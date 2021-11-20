@@ -258,6 +258,7 @@ class QrCodeDecoder:
         print(f"    {bitstream}")
 
         print("- Splitting bitstream to segments")
+        data = ""
         end = 0
         while True:
             start = end
@@ -276,19 +277,23 @@ class QrCodeDecoder:
             print("    Segment")
             print(f"        Mode: {consts.DATA_MODE_INDICATOR[mode]}")
 
-            if mode != consts.DataModeIndicator.EIGHTBITBYTE:
-                raise ValueError("Only 8-bit byte segments are supported")
-
+            # Determine the number of characters encoded
             start = end
-            end = start + 8
-
+            end = start + consts.char_count_bit_len(self.version, mode)
             char_count = int(bitstream[start:end], 2)
             print(f"        Char count: {char_count}")
 
-            chars = bytearray(char_count)
-            for char_idx in range(char_count):
-                start = end
-                end = start + 8
-                chars[char_idx] = int(bitstream[start:end], 2)
-
-            print(f"        {chars}")
+            if mode == consts.DataModeIndicator.EIGHTBITBYTE:
+                # FIXME: Add protection for crazy char_count
+                seg_data = bytearray(char_count)
+                for char_idx in range(char_count):
+                    start = end
+                    end = start + 8
+                    seg_data[char_idx] = int(bitstream[start:end], 2)
+                print(f"        {seg_data}")
+                data += str(seg_data.decode())
+            else:
+                raise ValueError("This segment mode is not supported")
+        self.data = data
+        print()
+        print(data)
