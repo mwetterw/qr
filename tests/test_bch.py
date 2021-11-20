@@ -1,27 +1,25 @@
-#!/usr/bin/env python3
-
-import unittest
+import pytest
 
 from ec.bch import BCH
 from ec.bch import BchDecodingFailure
 
-class TestSyndromes(unittest.TestCase):
+class TestSyndromes:
     def test_syndrome_zero(self):
         # Example from a valid QR Code Format
         bin_bch = BCH(4, 5, 3, 0)
-        self.assertEqual(bin_bch.syndrome(1, 0b001111010110010), 0)
+        assert bin_bch.syndrome(1, 0b001111010110010) == 0
 
     def test_syndrome_one_only_without_any_alpha(self):
         # Same QR Code Format as above, but with one error added in it
         bin_bch = BCH(4, 5, 3, 0)
-        self.assertEqual(bin_bch.syndrome(1, 0b001111010110011), 1)
+        assert bin_bch.syndrome(1, 0b001111010110011) == 1
 
     def test_syndromes_gf16_book_example_6_16_p261(self):
         R = 0b100001010
         EXPECTED_SYNDROMES = [15, 10, 8, 8, 0, 12]
 
         bin_bch = BCH(4, 5, 3, 0)
-        self.assertEqual(bin_bch.syndromes(R), EXPECTED_SYNDROMES)
+        assert bin_bch.syndromes(R) == EXPECTED_SYNDROMES
 
     def test_syndromes_gf32_book_example_6_12_p253(self):
         C = 0b11101101110100010101111001
@@ -34,8 +32,8 @@ class TestSyndromes(unittest.TestCase):
         EXPECTED_SYNDROMES_R = [19, 8, 1, 10]
 
         bin_bch = BCH(M, K, T, G)
-        self.assertEqual(bin_bch.syndromes(C), EXPECTED_SYNDROMES_C)
-        self.assertEqual(bin_bch.syndromes(R), EXPECTED_SYNDROMES_R)
+        assert bin_bch.syndromes(C) == EXPECTED_SYNDROMES_C
+        assert bin_bch.syndromes(R) == EXPECTED_SYNDROMES_R
 
     def test_syndromes_gf16_book_digital_communications_example_7_10_3_p465(self):
         # This example is interesting because the code word is zero
@@ -49,10 +47,10 @@ class TestSyndromes(unittest.TestCase):
         EXPECTED_SYNDROMES_R = [9, 13, 11, 14]
 
         bin_bch = BCH(M, K, T, G)
-        self.assertEqual(bin_bch.syndromes(C), EXPECTED_SYNDROMES_C)
-        self.assertEqual(bin_bch.syndromes(R), EXPECTED_SYNDROMES_R)
+        assert bin_bch.syndromes(C) == EXPECTED_SYNDROMES_C
+        assert bin_bch.syndromes(R) == EXPECTED_SYNDROMES_R
 
-class TestBerlekampMassey(unittest.TestCase):
+class TestBerlekampMassey:
     def test_berlekamp_massey_gf32_book_example_6_12_p253(self):
         C = 0b11101101110100010101111001
         R = 0b11101100110100010101101001
@@ -66,9 +64,9 @@ class TestBerlekampMassey(unittest.TestCase):
         bin_bch = BCH(M, K, T, G)
         syndromes = bin_bch.syndromes(R)
         sigma = bin_bch.berlekamp_massey(syndromes)
-        self.assertListEqual(sigma, EXPECTED_SIGMA)
+        assert sigma == EXPECTED_SIGMA
 
-class TestDecode(unittest.TestCase):
+class TestDecode:
     QR_BCH = BCH(4, 5, 3, 0)
 
     QR_CODE_FORMATS = [
@@ -111,7 +109,7 @@ class TestDecode(unittest.TestCase):
     def test_decode_qr_code_format_correct(self):
         for format_raw in self.QR_CODE_FORMATS:
             format_ = format_raw ^ self.QR_CODE_FORMAT_MASK
-            self.assertEqual((False, format_), self.QR_BCH.decode(format_))
+            assert (False, format_) == self.QR_BCH.decode(format_)
 
     def test_decode_qr_code_format_1_error(self):
         for format_raw in self.QR_CODE_FORMATS:
@@ -119,7 +117,7 @@ class TestDecode(unittest.TestCase):
             errors = [(1 << a) for a in range(0, 15)]
             formats_wrong = [(format_ ^ error) for error in errors]
             for format_wrong in formats_wrong:
-                self.assertEqual((True, format_), self.QR_BCH.decode(format_wrong))
+                assert (True, format_) == self.QR_BCH.decode(format_wrong)
 
     def test_decode_qr_code_format_2_errors(self):
         for format_raw in self.QR_CODE_FORMATS:
@@ -131,7 +129,7 @@ class TestDecode(unittest.TestCase):
 
             formats_wrong = [(format_ ^ error) for error in errors]
             for format_wrong in formats_wrong:
-                self.assertEqual((True, format_), self.QR_BCH.decode(format_wrong))
+                assert (True, format_) == self.QR_BCH.decode(format_wrong)
 
     def test_decode_qr_code_format_3_errors(self):
         for format_raw in self.QR_CODE_FORMATS:
@@ -139,12 +137,12 @@ class TestDecode(unittest.TestCase):
             errors = [0b111, 0b1110, 0b100101000000, 0b10011, 0b101000100000, 0b11100000000000]
             formats_wrong = [(format_ ^ error) for error in errors]
             for format_wrong in formats_wrong:
-                self.assertEqual((True, format_), self.QR_BCH.decode(format_wrong))
+                assert (True, format_) == self.QR_BCH.decode(format_wrong)
 
     def test_decode_qr_code_format_too_many_errors(self):
         for format_raw in self.QR_CODE_FORMATS:
             format_ = format_raw ^ self.QR_CODE_FORMAT_MASK
             format_wrong = format_ ^ 0b11110000000
 
-            with self.assertRaises(BchDecodingFailure):
+            with pytest.raises(BchDecodingFailure):
                 error, corrected = self.QR_BCH.decode(format_wrong)
