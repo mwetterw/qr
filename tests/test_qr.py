@@ -98,4 +98,4 @@ class TestDecode:
 
         # Load reference QR Code from disk and check if we can retrieve the correct data
         my_qr = QrCodeDecoder(filename)
-        assert my_qr.data == data
+        assert my_qr.decode() == data

@@ -8,16 +8,9 @@ class QrCodeDecoder:
 
 
     def __init__(self, qr):
-        self.load(qr)
-        self.get_version()
-        self.compute_alignment_patterns()
-        self.compute_function_patterns_mask()
-        self.decode_format()
-        self.unmask()
-        self.deinterlace_blocks()
-        self.split_data_blocks_into_segments()
+        self._load(qr)
 
-    def load(self, qr):
+    def _load(self, qr):
         if isinstance(qr, str):
             load_from_file = True
             with open(qr, 'r') as f:
@@ -45,7 +38,17 @@ class QrCodeDecoder:
         self.qr = qr
         self.size = height
 
-    def get_version(self):
+    def decode(self):
+        self._get_version()
+        self._compute_alignment_patterns()
+        self._compute_function_patterns_mask()
+        self._decode_format()
+        self._unmask()
+        self._deinterlace_blocks()
+        self._split_data_blocks_into_segments()
+        return self.data
+
+    def _get_version(self):
         version = (self.size - 21) / 4 + 1
 
         if not version.is_integer():
@@ -53,7 +56,7 @@ class QrCodeDecoder:
 
         self.version = int(version)
 
-    def compute_alignment_patterns(self):
+    def _compute_alignment_patterns(self):
         ap_db = consts.ALIGNMENT_PATTERNS[self.version]
         my_ap = [None] * (len(ap_db) ** 2 - 3)
         i = 0
@@ -72,7 +75,7 @@ class QrCodeDecoder:
                 i = i+1
         self.alignment_patterns = my_ap
 
-    def compute_function_patterns_mask(self):
+    def _compute_function_patterns_mask(self):
         self.fp_mask = [[0] * self.size for _ in range(self.size)]
 
         # Finder Patterns (Position Detection Patterns + Spacers)
@@ -114,7 +117,7 @@ class QrCodeDecoder:
                 self.fp_mask[i][j_mirror] = 1
 
 
-    def unfold_formats(self):
+    def _unfold_formats(self):
         nw = 0
         swne = 0
 
@@ -138,16 +141,16 @@ class QrCodeDecoder:
 
         return [nw, swne]
 
-    def decode_format(self):
-        formats = self.unfold_formats()
+    def _decode_format(self):
+        formats = self._unfold_formats()
         valid_formats = []
 
         for format_raw in formats:
             format_ = format_raw ^ consts.FORMAT_MASK_PATTERN
 
             try:
-                err, format_ = consts.BCH_FORMAT.decode(format_)
-            except(BchDecodingFailure):
+                _, format_ = consts.BCH_FORMAT.decode(format_)
+            except BchDecodingFailure:
                 continue
 
             ec_level = (format_ >> (consts.FORMAT_EC_BIT_LEN + consts.FORMAT_DATA_MP_BIT_LEN)) & ((1 << consts.FORMAT_DATA_EC_BIT_LEN) - 1)
@@ -165,14 +168,14 @@ class QrCodeDecoder:
         self.ec_level = ec_level
         self.mask_pattern = mask_pattern
 
-    def unmask(self):
+    def _unmask(self):
         for row in range(self.size):
             for col in range(self.size):
                 if not self.fp_mask[row][col]:
                     self.qr[row][col] ^= consts.FORMAT_MASK_PATTERNS[self.mask_pattern](row, col)
 
 
-    def unfold_modules_stream(self):
+    def _unfold_modules_stream(self):
         up = True
         bit = 7
         byte = 0
@@ -209,10 +212,10 @@ class QrCodeDecoder:
             # We've reached symbol bounds, let's reverse the middle loop direction
             up = not up
 
-    def deinterlace_blocks(self):
+    def _deinterlace_blocks(self):
         ec_config = consts.EC_BLOCKS[self.version][self.ec_level]
 
-        word_generator = self.unfold_modules_stream()
+        word_generator = self._unfold_modules_stream()
 
         blocks = []
         max_words_per_block = [0, 0]
@@ -240,7 +243,7 @@ class QrCodeDecoder:
 
         self.blocks = blocks
 
-    def split_data_blocks_into_segments(self):
+    def _split_data_blocks_into_segments(self):
         bitstream = ""
         for block in self.blocks:
             for byte in block[0]:
