@@ -7,8 +7,8 @@ class QrCodeDecoder:
     """QR Code Decoder"""
 
 
-    def __init__(self, qr_file):
-        self.load(qr_file)
+    def __init__(self, qr):
+        self.load(qr)
         print("Computing version...")
         self.get_version()
         print()
@@ -22,16 +22,22 @@ class QrCodeDecoder:
         print("Splitting data blocks into data segments...")
         self.split_data_blocks_into_segments()
 
-    def load(self, file):
-        with open(file, 'r') as f:
-            rows = f.readlines()
+    def load(self, qr):
+        if isinstance(qr, str):
+            load_from_file = True
+            with open(qr, 'r') as f:
+                rows = f.readlines()
+        else:
+            load_from_file = False
+            rows = qr
 
         height = len(rows)
 
         qr = [None] * height
 
         for row_idx, row in enumerate(rows):
-            row = row.strip()
+            if load_from_file:
+                row = row.strip()
 
             if len(row) != height:
                 raise ValueError("QR Matrix needs to be a square")
