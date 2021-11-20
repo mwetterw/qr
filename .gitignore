@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
+tests/qr_cache/
+.coverage
 *.egg-info/
