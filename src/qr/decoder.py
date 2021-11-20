@@ -12,6 +12,7 @@ class QrCodeDecoder:
         print("Computing version...")
         self.get_version()
         self.compute_alignment_patterns()
+        self.compute_function_patterns_mask()
         print()
         print("Reading format...")
         self.decode_format()
@@ -81,6 +82,47 @@ class QrCodeDecoder:
                 i = i+1
         self.alignment_patterns = my_ap
 
+    def compute_function_patterns_mask(self):
+        self.fp_mask = [[0] * len(self.qr) for _ in range(len(self.qr))]
+
+        # Finder Patterns (Position Detection Patterns + Spacers)
+        # Formats
+        # The Dark Module
+        for i in range(9):
+            for j in range(8):
+                j_mirror = len(self.qr) - 8 + j
+
+                self.fp_mask[i][j] = 1
+                self.fp_mask[i][j_mirror] = 1
+                self.fp_mask[j_mirror][i] = 1
+
+            self.fp_mask[i][8] = 1
+
+        # Timing Patterns
+        for i in range(8, len(self.qr) - 8):
+            self.fp_mask[6][i] = 1
+            self.fp_mask[i][6] = 1
+
+        if self.version < 2:
+            return
+
+        # Alignment Patterns
+        for ap_center_row, ap_center_col in self.alignment_patterns:
+            for i in range(ap_center_row - 2, ap_center_row + 3, 1):
+                for j in range(ap_center_col - 2, ap_center_col + 3, 1):
+                    self.fp_mask[i][j] = 1
+
+        if self.version < 7:
+            return
+
+        # Versions
+        for i in range(6):
+            for j in range(3):
+                j_mirror = len(self.qr) - 11 + j
+
+                self.fp_mask[j_mirror][i] = 1
+                self.fp_mask[i][j_mirror] = 1
+
 
     def unfold_formats(self):
         nw = 0
@@ -149,54 +191,11 @@ class QrCodeDecoder:
         print()
 
     def unmask(self):
-        for row in range(len(self.qr)):
-            for col in range(len(self.qr)):
-                if not self.is_function_pattern(row, col):
+        for row in range(self.size):
+            for col in range(self.size):
+                if not self.fp_mask[row][col]:
                     self.qr[row][col] ^= consts.FORMAT_MASK_PATTERNS[self.mask_pattern](row, col)
 
-    def is_function_pattern(self, row, col):
-        # NE Position Detection Pattern & Spacer
-        # NE part of NESW Format
-        if row <= 8 and col >= len(self.qr) - 8:
-            return True
-
-        # NW Position Detection Pattern & Spacer
-        # NW Format
-        if row <= 8 and col <= 8:
-            return True
-
-        # SW Position Detection Pattern & Spacer
-        # SW part of NESW Format
-        # The Dark Module (4V + 9, 8)
-        if row >= len(self.qr) - 8 and col <= 8:
-            return True
-
-        # Timing Patterns (Horizontal and Vertical)
-        if row == 6 or col == 6:
-            return True
-
-        if self.version < 2:
-            return False
-
-        # Alignment Pattern (V >= 2)
-        for ap_center_row, ap_center_col in compute_alignment_patterns(self.version):
-            if row >= ap_center_row - 2 and row <= ap_center_row + 2 \
-                    and col >= ap_center_col - 2 and col <= ap_center_col + 2:
-                return True
-
-        if self.version < 7:
-            return False
-
-        # Version (V >= 7)
-        if row >= 0 and row <= 5 and col >= len(self.qr) - 11 \
-                and col <= len(self.qr) - 9:
-            return True
-
-        if col >= 0 and col <= 5 and row >= len(self.qr) - 11 \
-                and row <= len(self.qr) - 9:
-            return True
-
-        return False
 
     def unfold_modules_stream(self):
         up = True
@@ -225,7 +224,7 @@ class QrCodeDecoder:
                     col = column_right - i
 
                     # Skip Function Patterns
-                    if self.is_function_pattern(row, col):
+                    if self.fp_mask[row][col]:
                         continue
 
                     byte |= (self.qr[row][col] << bit)
