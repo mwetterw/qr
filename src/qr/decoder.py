@@ -1,5 +1,5 @@
 from enum import IntEnum
-import consts
+from qr import consts
 
 from ec.bch import BchDecodingFailure
 
