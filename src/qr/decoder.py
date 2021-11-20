@@ -298,6 +298,20 @@ class QrCodeDecoder:
                     seg_data[char_idx] = int(bitstream[start:end], 2)
                 print(f"        {seg_data}")
                 data += str(seg_data.decode())
+            elif mode == consts.DataModeIndicator.ALPHANUMERIC:
+                seg_data = ""
+                # FIXME: Add protection for crazy char_count
+                # TODO: Handle odd number of chars
+                for char_idx in range(0, char_count, 2):
+                    start = end
+                    end = start + 11
+                    double_char = int(bitstream[start:end], 2)
+                    char1 = double_char // 45
+                    char2 = double_char % 45
+                    seg_data += consts.BASE45[char1]
+                    seg_data += consts.BASE45[char2]
+                print(f"        {seg_data}")
+                data += seg_data
             else:
                 raise ValueError("This segment mode is not supported")
         self.data = data

@@ -363,3 +363,5 @@ FORMAT_DATA_MP_BIT_LEN = 3
 FORMAT_EC_BIT_LEN   = 10
 
 BCH_FORMAT = bch.BCH(4, 5, 3, 0)
+
+BASE45 = [str(i) for i in range(10)] + [chr(ord('A') + i) for i in range(26)] + [' ', '$', '%', '*', '+', '-', '.', '/', ':']
