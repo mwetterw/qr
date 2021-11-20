@@ -291,21 +291,6 @@ ALIGNMENT_PATTERNS = [
     [6, 30, 58, 86, 114, 142, 170], # Version 40
 ]
 
-def alignment_pattern(version):
-    my_ap = ALIGNMENT_PATTERNS[version]
-    for coord1 in my_ap:
-        for coord2 in my_ap:
-            # No alignment pattern at (6, 6) because of NW position detection pattern
-            if coord1 == my_ap[0] and coord2 == my_ap[0]:
-                continue
-
-            # No alignment pattern at (6, z) and (z, 6) (z = my_ap[-1])
-            # Because of NE and SW position detection patterns
-            if {coord1, coord2} == {my_ap[0], my_ap[-1]}:
-                continue
-
-            yield (coord1, coord2)
-
 
 # 8.4 Data Encodation (Table 2)
 class DataModeIndicator(IntEnum):

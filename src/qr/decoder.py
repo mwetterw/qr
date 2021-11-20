@@ -11,6 +11,7 @@ class QrCodeDecoder:
         self.load(qr)
         print("Computing version...")
         self.get_version()
+        self.compute_alignment_patterns()
         print()
         print("Reading format...")
         self.decode_format()
@@ -60,6 +61,26 @@ class QrCodeDecoder:
 
         self.version = int(version)
         print(f'Version: {self.version}')
+
+    def compute_alignment_patterns(self):
+        ap_db = consts.ALIGNMENT_PATTERNS[self.version]
+        my_ap = [None] * (len(ap_db) ** 2 - 3)
+        i = 0
+        for coord1 in ap_db:
+            for coord2 in ap_db:
+                # No alignment pattern at (6, 6) because of NW position detection pattern
+                if coord1 == ap_db[0] and coord2 == ap_db[0]:
+                    continue
+
+                # No alignment pattern at (6, z) and (z, 6) (z = ap_db[-1])
+                # Because of NE and SW position detection patterns
+                if {coord1, coord2} == {ap_db[0], ap_db[-1]}:
+                    continue
+
+                my_ap[i] = (coord1, coord2)
+                i = i+1
+        self.alignment_patterns = my_ap
+
 
     def unfold_formats(self):
         nw = 0
@@ -158,7 +179,7 @@ class QrCodeDecoder:
             return False
 
         # Alignment Pattern (V >= 2)
-        for ap_center_row, ap_center_col in consts.alignment_pattern(self.version):
+        for ap_center_row, ap_center_col in compute_alignment_patterns(self.version):
             if row >= ap_center_row - 2 and row <= ap_center_row + 2 \
                     and col >= ap_center_col - 2 and col <= ap_center_col + 2:
                 return True
