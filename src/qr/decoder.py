@@ -87,22 +87,22 @@ class QrCodeDecoder:
         # Finder Patterns (Position Detection Patterns + Spacers)
         # Formats
         # The Dark Module
-        for i in range(9):
-            for j in range(8):
-                j_mirror = self.size - 8 + j
+        for i in range(consts.FINDER_PATTERN_SIZE + 1):
+            for j in range(consts.FINDER_PATTERN_SIZE):
+                j_mirror = -consts.FINDER_PATTERN_SIZE + j
 
                 fp_mask[i][j] = 1
                 fp_mask[i][j_mirror] = 1
                 fp_mask[j_mirror][i] = 1
 
-            fp_mask[i][8] = 1
+            fp_mask[i][consts.FINDER_PATTERN_SIZE] = 1
 
         # Timing Patterns
-        for i in range(8, self.size - 8):
-            fp_mask[6][i] = 1
-            fp_mask[i][6] = 1
+        for i in range(consts.FINDER_PATTERN_SIZE, self.size - consts.FINDER_PATTERN_SIZE):
+            fp_mask[consts.TIMING_PATTERN_ROW_COL][i] = 1
+            fp_mask[i][consts.TIMING_PATTERN_ROW_COL] = 1
 
-        if self.version < 2:
+        if self.version < consts.ALIGNMENT_PATTERN_VERSION_START:
             return fp_mask
 
         # Alignment Patterns
@@ -111,13 +111,13 @@ class QrCodeDecoder:
                 for j in range(ap_center_col - 2, ap_center_col + 3, 1):
                     fp_mask[i][j] = 1
 
-        if self.version < 7:
+        if self.version < consts.VERSION_BLOCK_VERSION_START:
             return fp_mask
 
         # Versions
-        for i in range(6):
-            for j in range(3):
-                j_mirror = self.size - 11 + j
+        for i in range(consts.VERSION_DIM[0]):
+            for j in range(consts.VERSION_DIM[1]):
+                j_mirror = -consts.FINDER_PATTERN_SIZE - consts.VERSION_DIM[1] + j
                 fp_mask[j_mirror][i] = 1
                 fp_mask[i][j_mirror] = 1
 
@@ -128,22 +128,22 @@ class QrCodeDecoder:
         swne_format = 0
 
         # Read horizontal part of NW format and vertical part of SWNE format
-        for i in range(8):
+        for i in range(consts.FINDER_PATTERN_SIZE):
             # Skip Vertical Timing Pattern for NW format
-            if i != 6:
-                nw_format = (nw_format << 1) | self.matrix[8][i]
+            if i != consts.TIMING_PATTERN_ROW_COL:
+                nw_format = (nw_format << 1) | self.matrix[consts.FINDER_PATTERN_SIZE][i]
             # Skip The Dark Module for SWNE format
-            if i != 7:
-                swne_format = (swne_format << 1) | self.matrix[self.size - 1 - i][8]
+            if i != consts.FINDER_PATTERN_SIZE - 1:
+                swne_format = (swne_format << 1) | self.matrix[-1 - i][consts.FINDER_PATTERN_SIZE]
 
         # Read vertical part of NW format and horizontal part of SWNE format
-        for i in range(9):
+        for i in range(consts.FINDER_PATTERN_SIZE, -1, -1):
             # Skip Horizontal Timing Pattern for NW format
-            if 8 - i != 6:
-                nw_format = (nw_format << 1) | self.matrix[8 - i][8]
+            if i != consts.TIMING_PATTERN_ROW_COL:
+                nw_format = (nw_format << 1) | self.matrix[i][consts.FINDER_PATTERN_SIZE]
             # Skip out of bounds module for SWNE format
-            if i <= 7:
-                swne_format = (swne_format << 1) | self.matrix[8][self.size - 8 + i]
+            if i > 0:
+                swne_format = (swne_format << 1) | self.matrix[consts.FINDER_PATTERN_SIZE][-i]
 
         return [nw_format, swne_format]
 
@@ -188,7 +188,7 @@ class QrCodeDecoder:
         # Outer loop: for each "column couple"
         for column_right in range(self.size - 1, 0, -2):
             # Skip Vertical Timing Pattern
-            if column_right <= 6:
+            if column_right <= consts.TIMING_PATTERN_ROW_COL:
                 column_right = column_right - 1
 
             # Configure middle loop range depending on whether we are going up or down

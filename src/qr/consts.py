@@ -319,7 +319,12 @@ def char_count_bit_len(version, mode):
         if version >= version_min:
             return dict_[mode_txt]
 
-POS_DETECT = 8
+FINDER_PATTERN_SIZE = 8
+TIMING_PATTERN_ROW_COL = 6
+VERSION_DIM = (6, 3)
+
+ALIGNMENT_PATTERN_VERSION_START = 2
+VERSION_BLOCK_VERSION_START = 7
 
 # 8.9 Format Information (Table 25)
 class FormatErrorCorrectionLevel(IntEnum):
