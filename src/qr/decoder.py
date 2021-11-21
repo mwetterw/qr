@@ -159,8 +159,12 @@ class QrCodeDecoder:
             except BchDecodingFailure:
                 continue
 
-            ec_level = (format_ >> (consts.FORMAT_EC_BIT_LEN + consts.FORMAT_DATA_MP_BIT_LEN)) & ((1 << consts.FORMAT_DATA_EC_BIT_LEN) - 1)
-            mask_pattern = (format_ >> consts.FORMAT_EC_BIT_LEN) & ((1 << consts.FORMAT_DATA_MP_BIT_LEN) - 1)
+            # Get format data by getting rid of the error correction bits
+            format_data = format_ >> consts.FORMAT_EC_BIT_LEN
+
+            # Extract EC Level and Mask Pattern from the format data
+            ec_level = (format_data >> consts.FORMAT_DATA_MP_BIT_LEN) & consts.FORMAT_DATA_MP_MASK
+            mask_pattern = format_data & consts.FORMAT_DATA_MP_MASK
             valid_formats.append((format_, ec_level, mask_pattern))
 
         if not valid_formats:
@@ -176,8 +180,9 @@ class QrCodeDecoder:
     def _unmask(self):
         for row in range(self.size):
             for col in range(self.size):
-                if not self.fp_mask[row][col]:
-                    self.matrix[row][col] ^= consts.FORMAT_MASK_PATTERNS[self.mask_pattern](row, col)
+                if self.fp_mask[row][col]:
+                    continue
+                self.matrix[row][col] ^= consts.FORMAT_MASK_PATTERNS[self.mask_pattern](row, col)
 
 
     def _unfold_modules_stream(self):
