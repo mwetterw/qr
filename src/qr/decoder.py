@@ -1,6 +1,6 @@
-from enum import IntEnum
 from qr import consts
 
+from io import StringIO
 from ec.bch import BchDecodingFailure
 
 class QrCodeDecoder:
@@ -52,7 +52,7 @@ class QrCodeDecoder:
         self.ec_level, self.mask_pattern = self._decode_format()
         self._unmask()
         self.blocks = self._deinterlace_blocks()
-        return self._split_data_blocks_into_segments()
+        return self._decode_data_blocks_segments()
 
     def _get_version(self):
         version = (self.size - 21) / 4 + 1
@@ -264,23 +264,20 @@ class QrCodeDecoder:
 
         return blocks
 
-    def _split_data_blocks_into_segments(self):
-        bitstream = ""
+    def _decode_data_blocks_segments(self):
+        bitstream = StringIO()
         for block in self.blocks:
             for byte in block[0]:
-                bitstream += format(byte, '08b')
+                bitstream.write(format(byte, '08b'))
 
-        data = ""
-        end = 0
+        bitstream.seek(0)
+        data_buf = StringIO()
         while True:
-            start = end
-            end = start + consts.DATA_MODE_INDICATOR_BIT_LEN
-
-            if end > len(bitstream):
+            try:
+                mode = int(bitstream.read(consts.DATA_MODE_INDICATOR_BIT_LEN), 2)
+            except ValueError:
                 print("Bitstream exhaustion (terminator implied)")
                 break
-
-            mode = int(bitstream[start:end], 2)
 
             if mode == consts.DataModeIndicator.TERMINATOR:
                 print("Terminator")
@@ -290,36 +287,43 @@ class QrCodeDecoder:
             print(f"    Mode: {consts.DATA_MODE_INDICATOR[mode]}")
 
             # Determine the number of characters encoded
-            start = end
-            end = start + consts.char_count_bit_len(self.version, mode)
-            char_count = int(bitstream[start:end], 2)
+            char_count = int(bitstream.read(consts.char_count_bit_len(self.version, mode)), 2)
             print(f"    Char count: {char_count}")
 
             if mode == consts.DataModeIndicator.EIGHTBITBYTE:
-                # FIXME: Add protection for crazy char_count
-                seg_data = bytearray(char_count)
-                for char_idx in range(char_count):
-                    start = end
-                    end = start + 8
-                    seg_data[char_idx] = int(bitstream[start:end], 2)
-                print(f"    {seg_data}")
-                data += str(seg_data.decode())
+                data_buf.write(self._decode_eightbitbyte_segment(bitstream, char_count))
             elif mode == consts.DataModeIndicator.ALPHANUMERIC:
-                seg_data = ""
-                # FIXME: Add protection for crazy char_count
-                # TODO: Handle odd number of chars
-                for char_idx in range(0, char_count, 2):
-                    start = end
-                    end = start + 11
-                    double_char = int(bitstream[start:end], 2)
-                    char1 = double_char // 45
-                    char2 = double_char % 45
-                    seg_data += consts.BASE45[char1]
-                    seg_data += consts.BASE45[char2]
-                print(f"    {seg_data}")
-                data += seg_data
+                data_buf.write(self._decode_alphanumeric_segment(bitstream, char_count))
             else:
                 raise ValueError("This segment mode is not supported")
+        bitstream.close()
+        data = data_buf.getvalue()
+        data_buf.close()
         print()
-        print(data)
         return data
+
+    @staticmethod
+    def _decode_eightbitbyte_segment(bitstream, char_count):
+        # FIXME: Add protection for crazy char_count
+        seg_data = bytearray(char_count)
+        for char_idx in range(char_count):
+            seg_data[char_idx] = int(bitstream.read(8), 2)
+        print(f"    {seg_data}")
+        return str(seg_data.decode())
+
+    @staticmethod
+    def _decode_alphanumeric_segment(bitstream, char_count):
+        seg_data_buf = StringIO()
+        # FIXME: Add protection for crazy char_count
+        # TODO: Handle odd number of chars
+        for _ in range(0, char_count, 2):
+            double_char = int(bitstream.read(11), 2)
+            char1 = double_char // 45
+            char2 = double_char % 45
+            seg_data_buf.write(consts.BASE45[char1])
+            seg_data_buf.write(consts.BASE45[char2])
+        seg_data = seg_data_buf.getvalue()
+        seg_data_buf.close()
+        print(f"    {seg_data}")
+
+        return seg_data
