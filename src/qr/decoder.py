@@ -313,15 +313,27 @@ class QrCodeDecoder:
 
     @staticmethod
     def _decode_alphanumeric_segment(bitstream, char_count):
+        # Safety check for crazy char_count (overflow)
+        remaining_bits = len(bitstream.getvalue()) - bitstream.tell()
+        needed_bits = 11 * (char_count >> 1) + 6 * (char_count & 1)
+        if needed_bits > remaining_bits:
+            raise ValueError("Character count indicator overflow for alphanumeric segment")
+
         seg_data_buf = StringIO()
-        # FIXME: Add protection for crazy char_count
-        # TODO: Handle odd number of chars
-        for _ in range(0, char_count, 2):
+
+        # Handle an even number of characters
+        for _ in range(0, char_count & ~1, 2):
             double_char = int(bitstream.read(11), 2)
             char1 = double_char // 45
             char2 = double_char % 45
             seg_data_buf.write(consts.BASE45[char1])
             seg_data_buf.write(consts.BASE45[char2])
+
+        # Handle last character if the number of characters is odd
+        if char_count & 1:
+            char = int(bitstream.read(6), 2)
+            seg_data_buf.write(consts.BASE45[char])
+
         seg_data = seg_data_buf.getvalue()
         seg_data_buf.close()
         print(f"    {seg_data}")
