@@ -29,9 +29,8 @@ class TestDecodeAlphaNumericSegment:
         bitstream = StringIO(bitstring)
         try:
             assert QrCodeDecoder._decode_alphanumeric_segment(bitstream, char_count) == expected
-        except:
+        finally:
             bitstream.close()
-            raise
 
     @pytest.mark.parametrize(("expected", "bitstring", "char_count"),
         [   ("O1",  "1000011101", None),
@@ -39,10 +38,12 @@ class TestDecodeAlphaNumericSegment:
             ("A1", "00111000011", 3),
             ("O14", "10000111001000100", 4),
             ("A1", "00111000011", 1031),
-            ("O14", "10000111001000100", 1031)],
+            ("O14", "10000111001000100", 1031),
+            ("F4", "11111101001", None),
+            ("F4N", "01010100111101101", None)],
         ids = ["bitstream_even", "bitstream_odd", "bitstream_overflow_even",
             "bitstream_overflow_odd", "bitstream_overflow_crazy_even",
-            "bitstream_overflow_crazy_odd"])
+            "bitstream_overflow_crazy_odd", "charset_overflow_double", "charset_overflow_single"])
     def test_alphanumeric_invalid(self, expected, bitstring, char_count):
         with pytest.raises(ValueError):
             self.test_alphanumeric_valid(expected, bitstring, char_count)

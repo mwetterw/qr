@@ -355,4 +355,11 @@ FORMAT_EC_BIT_LEN   = 10
 
 BCH_FORMAT = bch.BCH(4, 5, 3, 0)
 
-BASE45 = [str(i) for i in range(10)] + [chr(ord('A') + i) for i in range(26)] + [' ', '$', '%', '*', '+', '-', '.', '/', ':']
+ALPHANUM_CHARSET = [str(i) for i in range(10)] \
+        + [chr(ord('A') + i) for i in range(26)] \
+        + [' ', '$', '%', '*', '+', '-', '.', '/', ':']
+ALPHANUM_CHARSET_LEN = len(ALPHANUM_CHARSET)
+ALPHANUM_SINGLE_MAX = ALPHANUM_CHARSET_LEN - 1
+ALPHANUM_DOUBLE_MAX = ALPHANUM_SINGLE_MAX * ALPHANUM_CHARSET_LEN + ALPHANUM_SINGLE_MAX
+ALPHANUM_SINGLE_BIT_LEN = 6
+ALPHANUM_DOUBLE_BIT_LEN = 11
