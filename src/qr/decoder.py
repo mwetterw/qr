@@ -1,6 +1,6 @@
-from qr import consts
-
 from io import StringIO
+
+from qr import consts
 from ec.bch import BchDecodingFailure
 
 class QrCodeDecoder:
@@ -163,7 +163,7 @@ class QrCodeDecoder:
             format_data = format_ >> consts.FORMAT_EC_BIT_LEN
 
             # Extract EC Level and Mask Pattern from the format data
-            ec_level = (format_data >> consts.FORMAT_DATA_MP_BIT_LEN) & consts.FORMAT_DATA_MP_MASK
+            ec_level = format_data >> consts.FORMAT_DATA_MP_BIT_LEN
             mask_pattern = format_data & consts.FORMAT_DATA_MP_MASK
             valid_formats.append((format_, ec_level, mask_pattern))
 
@@ -294,6 +294,8 @@ class QrCodeDecoder:
                 data_buf.write(self._decode_eightbitbyte_segment(bitstream, char_count))
             elif mode == consts.DataModeIndicator.ALPHANUMERIC:
                 data_buf.write(self._decode_alphanumeric_segment(bitstream, char_count))
+            elif mode == consts.DataModeIndicator.NUMERIC:
+                data_buf.write(self._decode_numeric_segment(bitstream, char_count))
             else:
                 raise ValueError("This segment mode is not supported")
         bitstream.close()
@@ -303,13 +305,47 @@ class QrCodeDecoder:
         return data
 
     @staticmethod
-    def _decode_eightbitbyte_segment(bitstream, char_count):
-        # FIXME: Add protection for crazy char_count
-        seg_data = bytearray(char_count)
-        for char_idx in range(char_count):
-            seg_data[char_idx] = int(bitstream.read(8), 2)
+    def _decode_numeric_segment(bitstream, char_count):
+        # Safety check for crazy char_count (overflow)
+        remaining_bits = len(bitstream.getvalue()) - bitstream.tell()
+        needed_bits = consts.NUM_TRIPLE_BIT_LEN * (char_count // 3)
+        rest = char_count % 3
+        if rest == 2:
+            needed_bits += consts.NUM_DOUBLE_BIT_LEN
+        elif rest == 1:
+            needed_bits += consts.NUM_SINGLE_BIT_LEN
+
+        if needed_bits > remaining_bits:
+            raise ValueError("Character count indicator overflow for numeric segment")
+
+        seg_data_buf = StringIO()
+
+        # Handle a multiple of 3 digits
+        for _ in range (0, char_count - rest, 3):
+            triple_digit = int(bitstream.read(consts.NUM_TRIPLE_BIT_LEN), 2)
+            if triple_digit > consts.NUM_TRIPLE_MAX:
+                raise ValueError("Numeric charset overflow")
+            seg_data_buf.write(format(triple_digit, '03d'))
+
+        # Handle the case where there are 2 digits left at the end
+        if rest == 2:
+            double_digit = int(bitstream.read(consts.NUM_DOUBLE_BIT_LEN), 2)
+            if double_digit > consts.NUM_DOUBLE_MAX:
+                raise ValueError("Numeric charset overflow")
+            seg_data_buf.write(format(double_digit, '02d'))
+
+        # Handle the case where there is 1 digit left at the end
+        elif rest == 1:
+            single_digit = int(bitstream.read(consts.NUM_SINGLE_BIT_LEN), 2)
+            if single_digit > consts.NUM_SINGLE_MAX:
+                raise ValueError("Numeric charset overflow")
+            seg_data_buf.write(str(single_digit))
+
+        seg_data = seg_data_buf.getvalue()
+        seg_data_buf.close()
         print(f"    {seg_data}")
-        return str(seg_data.decode())
+
+        return seg_data
 
     @staticmethod
     def _decode_alphanumeric_segment(bitstream, char_count):
@@ -344,3 +380,12 @@ class QrCodeDecoder:
         print(f"    {seg_data}")
 
         return seg_data
+
+    @staticmethod
+    def _decode_eightbitbyte_segment(bitstream, char_count):
+        # FIXME: Add protection for crazy char_count
+        seg_data = bytearray(char_count)
+        for char_idx in range(char_count):
+            seg_data[char_idx] = int(bitstream.read(8), 2)
+        print(f"    {seg_data}")
+        return str(seg_data.decode())

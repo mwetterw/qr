@@ -9,6 +9,54 @@ from qrcode.constants import ERROR_CORRECT_L, ERROR_CORRECT_M, ERROR_CORRECT_Q, 
 
 from qr.decoder import QrCodeDecoder
 
+class TestDecodeNumericSegment:
+    @pytest.mark.parametrize(("expected", "bitstring"),
+        [   ("145", "0010010001"),
+            ("47122", "01110101110010110"),
+            ("3412", "01010101010010"),
+            ("0123456789", "0000001100010101100110101001101001"),
+            ("", ""),
+            ("7", "0111"),
+            ("47", "0101111"),
+            ("47", "01011110100001110"),
+            ("000", "0000000000"),
+            ("007", "0000000111"),
+            ("00", "0000000"),
+            ("07", "0000111"),
+            ("0", "0000"),
+        ],
+        ids = ["simple_3", "simple_rest_2", "simple_rest_1", "complete_charset", "zero_digit_empty",
+            "one_digit", "two_digit", "bitstream_underflow", "zeroes_3", "leading_zeroes_3",
+            "zeroes_rest_2", "leading_zeroes_rest_2", "zeroes_rest_1"])
+    def test_numeric_valid(self, expected, bitstring, char_count=None):
+        if char_count is None:
+            char_count = len(expected)
+        bitstream = StringIO(bitstring)
+        try:
+            assert QrCodeDecoder._decode_numeric_segment(bitstream, char_count) == expected
+        finally:
+            bitstream.close()
+
+    @pytest.mark.parametrize(("expected", "bitstring", "char_count"),
+        [   ("145",  "001001001", None),
+            ("47122", "011101111", None),
+            ("3412", "0101010101010", None),
+            ("145", "0010010001", 4),
+            ("47122", "0111010111", 6),
+            ("3412", "01010101010010", 5),
+            ("145", "0010010001", 1031),
+            ("47122", "0111010111", 1031),
+            ("3412", "01010101010010", 1031),
+            ("999", "1111101000", None),
+            ("99", "1100100", None),
+            ("9", "1010", None)],
+        ids = ["bitstream_3", "bitstream_rest_2", "bitstream_rest_1", "bitstream_overflow_3",
+            "bitstream_overflow_rest_2", "bitstream_overflow_rest_1", "bitstream_overflow_crazy_3",
+            "bitstream_overflow_crazy_rest_2", "bitstream_overflow_crazy_rest_1",
+            "charset_overflow_triple", "charset_overflow_double", "charset_overflow_single"])
+    def test_numeric_invalid(self, expected, bitstring, char_count):
+        with pytest.raises(ValueError):
+            self.test_numeric_valid(expected, bitstring, char_count)
 
 class TestDecodeAlphaNumericSegment:
     @pytest.mark.parametrize(("expected", "bitstring"),
