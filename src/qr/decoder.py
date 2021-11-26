@@ -68,12 +68,12 @@ class QrCodeDecoder:
         i = 0
         for coord1 in ap_db:
             for coord2 in ap_db:
-                # No alignment pattern at (6, 6) because of NW position detection pattern
+                # No alignment pattern at (6, 6) because of NW finder pattern
                 if coord1 == ap_db[0] and coord2 == ap_db[0]:
                     continue
 
                 # No alignment pattern at (6, z) and (z, 6) (z = ap_db[-1])
-                # Because of NE and SW position detection patterns
+                # Because of NE and SW finder patterns
                 if {coord1, coord2} == {ap_db[0], ap_db[-1]}:
                     continue
 
@@ -84,7 +84,7 @@ class QrCodeDecoder:
     def _compute_function_patterns_mask(self, alignment_patterns):
         fp_mask = [[0] * self.size for _ in range(self.size)]
 
-        # Finder Patterns (Position Detection Patterns + Spacers)
+        # Finder Patterns and Spacers
         # Formats
         # The Dark Module
         for i in range(consts.FINDER_PATTERN_SIZE + 1):
