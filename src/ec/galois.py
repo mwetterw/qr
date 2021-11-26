@@ -1,3 +1,10 @@
+from functools import reduce
+
+# As this module is essentially dealing with pure mathematics, let's allow
+# ourselves to use variables of one character length, like "x", "y", etc.
+# The variable names shouldn't have a big importance (because of the mathematical abstraction)
+# pylint: disable=invalid-name
+
 class BinaryGaloisField:
     """Represent a Binary Galois Field
 
@@ -29,14 +36,15 @@ class BinaryGaloisField:
     def __init__(self, m):
         if m < self.M_MIN:
             raise ValueError(f"The exponent m must be greater or equal to {self.M_MIN}")
-        elif m > self.M_MAX:
+        if m > self.M_MAX:
             raise ValueError(f"Exponent m greater than {self.M_MAX} are not supported")
 
         self.m = m
         self.n = 2**m - 1
 
         # Only generate table if it doesn't already exist
-        # And then always make the dynamic instance table point to the static pre-computed one as syntactic sugar
+        # And then always make the dynamic instance table point to the static
+        # pre-computed one as syntactic sugar
         if not self.LOG_TO_VECTOR_TABLES[m - self.M_MIN]:
             self.LOG_TO_VECTOR_TABLES[m - self.M_MIN] = self.generate_log_to_vector()
         self.log_to_vector = self.LOG_TO_VECTOR_TABLES[m - self.M_MIN]
@@ -56,9 +64,9 @@ class BinaryGaloisField:
         for i in range(m+1, len(log_to_vector)):
             vector = log_to_vector[i-1] << 1
 
-            # If the m bit is set, we need to simplify that alpha^m into a combination of lower alphas
+            # If m bit is set, we need to simplify that alpha^m into a combination of lower alphas
             if vector & (1 << m):
-                # Cancel the m bit, then add the simplification of alpha^m (replace alpha^m by its simplification)
+                # Replace alpha^m by its simplification
                 vector ^= (1 << m)
                 vector ^= log_to_vector[m]
             # Store the result in our table
@@ -74,6 +82,12 @@ class BinaryGaloisField:
 
     # Note that gf_add and gf_sub are both the same as a XOR (^ operator)
 
+    @staticmethod
+    def gf_sum(list_to_sum):
+        """Implement the summation of GF(2^m) numbers"""
+
+        return reduce(lambda x, y: x ^ y, list_to_sum, 0)
+
     def gf_mul(self, x, y):
         """Multiply 2 GF(2^m) number together
 
@@ -82,13 +96,15 @@ class BinaryGaloisField:
         """
         if not x or not y:
             return 0
-        return self.log_to_vector[(self.vector_to_log[x] + self.vector_to_log[y]) % self.n]
+
+        exponent = (self.vector_to_log[x] + self.vector_to_log[y]) % self.n
+        return self.log_to_vector[exponent]
 
     def gf_div(self, x, y):
         """Divide 2 GF(2^m) number together
 
         To divide 2 GF numbers, we convert them to alpha notation and substract their powers.
-        But we cannot have negative powers, and power need to be between [0, self.n]
+        But we cannot have negative powers, and power need to be between [0, self.n[
         Then, we convert it back to the vector notation
         """
         if not y:
@@ -96,7 +112,8 @@ class BinaryGaloisField:
         if not x:
             return 0
 
-        return self.log_to_vector[(self.vector_to_log[x] + self.n  - self.vector_to_log[y]) % self.n]
+        exponent = (self.vector_to_log[x] + self.n  - self.vector_to_log[y]) % self.n
+        return self.log_to_vector[exponent]
 
     def gf_pow(self, x, power):
         """Compute the power of a GF(2^m) number
@@ -137,7 +154,8 @@ class BinaryGaloisField:
 
         return res_poly
 
-    def gf_poly_add(self, poly1, poly2):
+    @staticmethod
+    def gf_poly_add(poly1, poly2):
         """Add 2 GF(2^m) polynomials"""
 
         res_poly = [0] * max(len(poly1), len(poly2))

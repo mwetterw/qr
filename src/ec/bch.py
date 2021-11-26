@@ -46,8 +46,8 @@ class BCH:
 
         for syndnum in range(1, len(syndromes) + 1):
             # Compute discrepency
-            sum_ = 0
-            [sum_ := sum_ ^ self.gf.gf_mul(sigma[i], syndromes[syndnum - i - 1]) for i in range(1, lfsr_len + 1)]
+            sum_ = self.gf.gf_sum([self.gf.gf_mul(sigma[i], syndromes[syndnum - i - 1]) \
+                    for i in range(1, lfsr_len + 1)])
             discrep = syndromes[syndnum - 1] ^ sum_
 
             # No change in polynomial
@@ -104,8 +104,7 @@ class BCH:
         mul = [self.gf.log_to_vector[exponent] for exponent in range(1, len(sigma))]
 
         for i in range (0, self.n):
-            sum_ = 0
-            [sum_ := sum_ ^ elem for elem in compute]
+            sum_ = self.gf.gf_sum(compute)
             if sum_ == 1:
                 roots.append(self.gf.log_to_vector[i])
 
