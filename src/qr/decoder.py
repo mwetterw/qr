@@ -383,9 +383,15 @@ class QrCodeDecoder:
 
     @staticmethod
     def _decode_eightbitbyte_segment(bitstream, char_count):
-        # FIXME: Add protection for crazy char_count
+        remaining_bits = len(bitstream.getvalue()) - bitstream.tell()
+        needed_bits = consts.EIGHTBIT_BIT_LEN * char_count
+        if needed_bits > remaining_bits:
+            raise ValueError("Character count indicator overflow for 8bit-byte mode segment")
+
         seg_data = bytearray(char_count)
         for char_idx in range(char_count):
-            seg_data[char_idx] = int(bitstream.read(8), 2)
+            seg_data[char_idx] = int(bitstream.read(consts.EIGHTBIT_BIT_LEN), 2)
         print(f"    {seg_data}")
-        return str(seg_data.decode())
+
+        # When using default ECI mode, ISO/IEC 18004:2015 standard says to assume ISO-8859-1
+        return str(seg_data.decode('iso-8859-1'))

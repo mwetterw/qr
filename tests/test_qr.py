@@ -96,6 +96,22 @@ class TestDecodeAlphaNumericSegment:
         with pytest.raises(ValueError):
             self.test_alphanumeric_valid(expected, bitstring, char_count)
 
+class TestDecodeEightBitSegment:
+    @pytest.mark.parametrize(("expected"),
+        [   ("H"),
+            ("Hello World!"),
+            ("Mais décode donc mon QR Code.")],
+        ids = ["common_charset", "common_charset2", "accents"])
+    def test_eightbit_valid(self, expected, char_count=None):
+        if char_count is None:
+            char_count = len(expected)
+        bitstring = ''.join([format(byte, '08b') for byte in expected.encode("iso-8859-1")])
+        bitstream = StringIO(bitstring)
+        try:
+            assert QrCodeDecoder._decode_eightbitbyte_segment(bitstream, char_count)
+        finally:
+            bitstream.close()
+
 
 class TestDecode:
     EC_STR = ['L', 'M', 'Q', 'H']
