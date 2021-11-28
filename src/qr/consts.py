@@ -371,3 +371,42 @@ NUM_DOUBLE_BIT_LEN = 7
 NUM_TRIPLE_BIT_LEN = 10
 
 EIGHTBIT_BIT_LEN = 8
+
+class Eci:
+    # Those ECIs are in the category:
+    # Encodable -> Interpretative -> Character Set ECIs (0-899)
+
+    DESIGNATOR_WORD_LEN = 8
+
+    CHARSET_RANGE = (0, 900)
+
+    DEFAULT_CHARSET = 3
+
+    CHARSETS = {
+        3: 'iso-8859-1',    # Western Europe
+        4: 'iso-8859-2',    # Central & Eastern Europe
+        5: 'iso-8859-3',    # South Europe
+        6: 'iso-8859-4',    # North Europe
+        7: 'iso-8859-5',    # Cyrillic
+        8: 'iso-8859-6',    # Arabic
+        9: 'iso-8859-7',    # Greek
+        10: 'iso-8859-8',   # Hebrew
+        11: 'iso-8859-9',   # Turkish
+        12: 'iso-8859-10',  # Nordic
+        13: 'iso-8859-11',  # Thai
+        15: 'iso-8859-13',  # Baltic
+        16: 'iso-8859-14',  # Celtic
+        17: 'iso-8859-15',  # Western Europe (with € sign)
+        18: 'iso-8859-16',  # South-Eastern Europe
+        20: 'shift-jis',    # Japanese
+        21: 'windows-1250', # Central & Eastern Europe
+        22: 'windows-1251', # Cyrillic
+        23: 'windows-1252', # Western Europe (with € sign)
+        24: 'windows-1256', # Arabic
+        25: 'utf-16-be',    # UTF-16 Unicode (Big Endian)
+        26: 'utf-8',        # UTF-8 Unicode
+        27: 'ascii',        # ISO-646:1991 7bit Charset
+        28: 'big5',         # Traditional Chinese (Taiwan)
+        29: 'gb18030',      # Unified Chinese (China)
+        30: 'euc-kr',       # Korean (KSX1001:1998)
+    }

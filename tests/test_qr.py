@@ -9,21 +9,53 @@ from qrcode.constants import ERROR_CORRECT_L, ERROR_CORRECT_M, ERROR_CORRECT_Q, 
 
 from qr.decoder import QrCodeDecoder
 
+class TestParseEciDesignator:
+    @pytest.mark.parametrize(("expected", "bitstring"),
+        [   (3, "00000011"),
+            (3, "1000000000000011"),
+            (3, "110000000000000000000011"),
+            (30, "00011110"),
+            (30, "1000000000011110"),
+            (30, "110000000000000000011110"),
+        ],
+        ids = ["3_8bit", "3_16bit", "3_24bit", "30_8bit", "30_16bit", "30_24bit"])
+    def test_designator_valid(self, expected, bitstring):
+        bitstream = StringIO(bitstring)
+        try:
+            assert QrCodeDecoder._parse_eci_designator(bitstream) == expected
+        finally:
+            bitstream.close()
+
+    @pytest.mark.parametrize(("expected", "bitstring"),
+        [   (3, "10000011"),
+            (3, "11000011"),
+            (63, "00111111"),
+            (63, "11100000000000000000000000111111"),
+            (900, "1000001110000100"),
+            (811799, "110011000110001100010111"),
+        ],
+        ids = ["overflow_16bit", "overflow_24bit", "unknown_charset",
+            "63_32bit", "transfo_eci_min", "transfo_eci_max"])
+    def test_designator_invalid(self, expected, bitstring):
+        with pytest.raises(ValueError):
+            self.test_designator_valid(expected, bitstring)
+
+
 class TestDecodeNumericSegment:
     @pytest.mark.parametrize(("expected", "bitstring"),
-        [   ("145", "0010010001"),
-            ("47122", "01110101110010110"),
-            ("3412", "01010101010010"),
-            ("0123456789", "0000001100010101100110101001101001"),
-            ("", ""),
-            ("7", "0111"),
-            ("47", "0101111"),
-            ("47", "01011110100001110"),
-            ("000", "0000000000"),
-            ("007", "0000000111"),
-            ("00", "0000000"),
-            ("07", "0000111"),
-            ("0", "0000"),
+        [   (b"145", "0010010001"),
+            (b"47122", "01110101110010110"),
+            (b"3412", "01010101010010"),
+            (b"0123456789", "0000001100010101100110101001101001"),
+            (b"", ""),
+            (b"7", "0111"),
+            (b"47", "0101111"),
+            (b"47", "01011110100001110"),
+            (b"000", "0000000000"),
+            (b"007", "0000000111"),
+            (b"00", "0000000"),
+            (b"07", "0000111"),
+            (b"0", "0000"),
         ],
         ids = ["simple_3", "simple_rest_2", "simple_rest_1", "complete_charset", "zero_digit_empty",
             "one_digit", "two_digit", "bitstream_underflow", "zeroes_3", "leading_zeroes_3",
@@ -60,15 +92,15 @@ class TestDecodeNumericSegment:
 
 class TestDecodeAlphaNumericSegment:
     @pytest.mark.parametrize(("expected", "bitstring"),
-        [   ("BCD+78", "001111110110100111000100101000011"),
-            ("AC-42", "0011100111011100111001000010"),
-            ("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:", "000000000010000101110100010111001" \
+        [   (b"BCD+78", "001111110110100111000100101000011"),
+            (b"AC-42", "0011100111011100111001000010"),
+            (b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:", "000000000010000101110100010111001" \
                 "00100010101001011100010011100110101000101001010100001010101110000101100111101" \
                 "01110011001011111101011000101000110010101101101000010011010110010110111000001" \
                 "1100001110111001111001110110101011110011000111110001101101100"),
-            ("", ""),
-            ("/", "101011"),
-            ("O1", "1000011100100111000110")],
+            (b"", ""),
+            (b"/", "101011"),
+            (b"O1", "1000011100100111000110")],
         ids = ["simple_even", "simple_odd", "complete_charset", "zero_char_empty", "one_char",
             "bitstream_underflow"])
     def test_alphanumeric_valid(self, expected, bitstring, char_count=None):
@@ -81,14 +113,14 @@ class TestDecodeAlphaNumericSegment:
             bitstream.close()
 
     @pytest.mark.parametrize(("expected", "bitstring", "char_count"),
-        [   ("O1",  "1000011101", None),
-            ("O14", "1000011100100100", None),
-            ("A1", "00111000011", 3),
-            ("O14", "10000111001000100", 4),
-            ("A1", "00111000011", 1031),
-            ("O14", "10000111001000100", 1031),
-            ("F4", "11111101001", None),
-            ("F4N", "01010100111101101", None)],
+        [   (b"O1",  "1000011101", None),
+            (b"O14", "1000011100100100", None),
+            (b"A1", "00111000011", 3),
+            (b"O14", "10000111001000100", 4),
+            (b"A1", "00111000011", 1031),
+            (b"O14", "10000111001000100", 1031),
+            (b"F4", "11111101001", None),
+            (b"F4N", "01010100111101101", None)],
         ids = ["bitstream_even", "bitstream_odd", "bitstream_overflow_even",
             "bitstream_overflow_odd", "bitstream_overflow_crazy_even",
             "bitstream_overflow_crazy_odd", "charset_overflow_double", "charset_overflow_single"])
@@ -98,19 +130,33 @@ class TestDecodeAlphaNumericSegment:
 
 class TestDecodeEightBitSegment:
     @pytest.mark.parametrize(("expected"),
-        [   ("H"),
-            ("Hello World!"),
-            ("Mais décode donc mon QR Code.")],
-        ids = ["common_charset", "common_charset2", "accents"])
-    def test_eightbit_valid(self, expected, char_count=None):
+        [   (b"H"),
+            (b"Hello World!"),
+            (b""),
+            ("Mais décode donc mon QR Code.".encode('iso-8859-1')),
+            ("我是一個二維碼".encode('big5'))],
+        ids = ["common_charset", "common_charset2", "empty", "accents", "chinese_big5"])
+    def test_eightbit_valid(self, expected, bitstring=None, char_count=None):
         if char_count is None:
             char_count = len(expected)
-        bitstring = ''.join([format(byte, '08b') for byte in expected.encode("iso-8859-1")])
+        if bitstring is None:
+            bitstring = ''.join([format(byte, '08b') for byte in expected])
         bitstream = StringIO(bitstring)
         try:
-            assert QrCodeDecoder._decode_eightbitbyte_segment(bitstream, char_count)
+            assert QrCodeDecoder._decode_eightbitbyte_segment(bitstream, char_count) == expected
         finally:
             bitstream.close()
+
+    @pytest.mark.parametrize(("expected", "bitstring", "char_count"),
+        [   (b"H", "1010110", None),
+            (b"Hello World!", None, 13),
+            (b"Hello World!", None, 1031),
+            ("我是一個二維碼".encode('big5'), None, 15)],
+        ids = ["bitstream", "bitstream_overflow", "bitstream_overflow_crazy",
+            "bitstream_overflow_chinese_big5"])
+    def test_eightbit_invalid(self, expected, bitstring, char_count):
+        with pytest.raises(ValueError):
+            self.test_eightbit_valid(expected, bitstring, char_count)
 
 
 class TestDecode:

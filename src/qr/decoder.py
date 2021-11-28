@@ -1,4 +1,4 @@
-from io import StringIO
+from io import StringIO, BytesIO
 
 from qr import consts
 from ec.bch import BchDecodingFailure
@@ -184,7 +184,6 @@ class QrCodeDecoder:
                     continue
                 self.matrix[row][col] ^= consts.FORMAT_MASK_PATTERNS[self.mask_pattern](row, col)
 
-
     def _unfold_modules_stream(self):
         go_up = True
         bit = 7
@@ -264,6 +263,41 @@ class QrCodeDecoder:
 
         return blocks
 
+    @staticmethod
+    def _parse_eci_designator(bitstream):
+        # The ECI Designator can be over 1, 2 or 3 bytes
+        # To find out, we first fetch a first byte, and analyse its 3 MSb
+        # The number of leading ones in its 3 MSb is the nb of additional bytes
+        eci_designator = int(bitstream.read(consts.Eci.DESIGNATOR_WORD_LEN), 2)
+        eci_designator_preamble = eci_designator >> 5
+
+        # Find out the number of leading ones in the 3 bits preamble
+        additional = 0
+        for additional, value in enumerate([3, 5, 6, 7]):
+            if eci_designator_preamble <= value:
+                break
+
+        if additional >= 3:
+            raise ValueError("ECI Designator size cannot be more than 24 bits")
+
+        # Fetch one or two more bytes to complete the ECI Designator if needed
+        if additional:
+            fetch_bit_len = consts.Eci.DESIGNATOR_WORD_LEN * additional
+            # Reset the preamble bits (don't belong to ECI Assignment Number)
+            eci_designator &= 0x7f >> additional
+            # Fetch the additional bytes
+            eci_designator <<= fetch_bit_len
+            eci_designator |= int(bitstream.read(fetch_bit_len), 2)
+
+        if eci_designator not in range(*consts.Eci.CHARSET_RANGE):
+            raise ValueError("Only Character Set Interpretative Encodable ECIs are supported")
+
+        if eci_designator not in consts.Eci.CHARSETS:
+            raise ValueError("Unsupported ECI Charset")
+
+        print(f"ECI Charset: {eci_designator} ({consts.Eci.CHARSETS[eci_designator]})")
+        return eci_designator
+
     def _decode_data_blocks_segments(self):
         bitstream = StringIO()
         for block in self.blocks:
@@ -272,6 +306,8 @@ class QrCodeDecoder:
 
         bitstream.seek(0)
         data_buf = StringIO()
+        charset = consts.Eci.CHARSETS[consts.Eci.DEFAULT_CHARSET]
+        eci_segment = BytesIO()
         while True:
             try:
                 mode = int(bitstream.read(consts.DATA_MODE_INDICATOR_BIT_LEN), 2)
@@ -283,6 +319,19 @@ class QrCodeDecoder:
                 print("Terminator")
                 break
 
+            if mode == consts.DataModeIndicator.ECI:
+                # Flush previous ECI Segment and start a new one (except if this is the first)
+                if eci_segment.tell():
+                    data_buf.write(eci_segment.getvalue().decode(charset))
+                    eci_segment.close()
+                    eci_segment = BytesIO()
+
+                # Parse the ECI Designator of the new starting ECI Segment
+                eci_charset = self._parse_eci_designator(bitstream)
+                charset = consts.Eci.CHARSETS[eci_charset]
+                continue
+
+
             print("Segment")
             print(f"    Mode: {consts.DATA_MODE_INDICATOR[mode]}")
 
@@ -291,14 +340,19 @@ class QrCodeDecoder:
             print(f"    Char count: {char_count}")
 
             if mode == consts.DataModeIndicator.EIGHTBITBYTE:
-                data_buf.write(self._decode_eightbitbyte_segment(bitstream, char_count))
+                eci_segment.write(self._decode_eightbitbyte_segment(bitstream, char_count))
             elif mode == consts.DataModeIndicator.ALPHANUMERIC:
-                data_buf.write(self._decode_alphanumeric_segment(bitstream, char_count))
+                eci_segment.write(self._decode_alphanumeric_segment(bitstream, char_count))
             elif mode == consts.DataModeIndicator.NUMERIC:
-                data_buf.write(self._decode_numeric_segment(bitstream, char_count))
+                eci_segment.write(self._decode_numeric_segment(bitstream, char_count))
             else:
                 raise ValueError("This segment mode is not supported")
         bitstream.close()
+
+        # Flush last ECI Segment
+        data_buf.write(eci_segment.getvalue().decode(charset))
+        eci_segment.close()
+
         data = data_buf.getvalue()
         data_buf.close()
         print()
@@ -318,28 +372,28 @@ class QrCodeDecoder:
         if needed_bits > remaining_bits:
             raise ValueError("Character count indicator overflow for numeric segment")
 
-        seg_data_buf = StringIO()
+        seg_data_buf = BytesIO()
 
         # Handle a multiple of 3 digits
         for _ in range (0, char_count - rest, 3):
             triple_digit = int(bitstream.read(consts.NUM_TRIPLE_BIT_LEN), 2)
             if triple_digit > consts.NUM_TRIPLE_MAX:
                 raise ValueError("Numeric charset overflow")
-            seg_data_buf.write(format(triple_digit, '03d'))
+            seg_data_buf.write(bytes(format(triple_digit, '03d'), 'ascii'))
 
         # Handle the case where there are 2 digits left at the end
         if rest == 2:
             double_digit = int(bitstream.read(consts.NUM_DOUBLE_BIT_LEN), 2)
             if double_digit > consts.NUM_DOUBLE_MAX:
                 raise ValueError("Numeric charset overflow")
-            seg_data_buf.write(format(double_digit, '02d'))
+            seg_data_buf.write(bytes(format(double_digit, '02d'), 'ascii'))
 
         # Handle the case where there is 1 digit left at the end
         elif rest == 1:
             single_digit = int(bitstream.read(consts.NUM_SINGLE_BIT_LEN), 2)
             if single_digit > consts.NUM_SINGLE_MAX:
                 raise ValueError("Numeric charset overflow")
-            seg_data_buf.write(str(single_digit))
+            seg_data_buf.write(bytes(str(single_digit), 'ascii'))
 
         seg_data = seg_data_buf.getvalue()
         seg_data_buf.close()
@@ -356,7 +410,7 @@ class QrCodeDecoder:
         if needed_bits > remaining_bits:
             raise ValueError("Character count indicator overflow for alphanumeric segment")
 
-        seg_data_buf = StringIO()
+        seg_data_buf = BytesIO()
 
         # Handle an even number of characters
         for _ in range(0, char_count & ~1, 2):
@@ -365,15 +419,15 @@ class QrCodeDecoder:
                 raise ValueError("Alphanumeric charset overflow")
             char1 = double_char // consts.ALPHANUM_CHARSET_LEN
             char2 = double_char % consts.ALPHANUM_CHARSET_LEN
-            seg_data_buf.write(consts.ALPHANUM_CHARSET[char1])
-            seg_data_buf.write(consts.ALPHANUM_CHARSET[char2])
+            seg_data_buf.write(bytes(consts.ALPHANUM_CHARSET[char1], 'ascii'))
+            seg_data_buf.write(bytes(consts.ALPHANUM_CHARSET[char2], 'ascii'))
 
         # Handle last character if the number of characters is odd
         if char_count & 1:
             char = int(bitstream.read(consts.ALPHANUM_SINGLE_BIT_LEN), 2)
             if char > consts.ALPHANUM_SINGLE_MAX:
                 raise ValueError("Alphanumeric charset overflow")
-            seg_data_buf.write(consts.ALPHANUM_CHARSET[char])
+            seg_data_buf.write(bytes(consts.ALPHANUM_CHARSET[char], 'ascii'))
 
         seg_data = seg_data_buf.getvalue()
         seg_data_buf.close()
@@ -393,5 +447,4 @@ class QrCodeDecoder:
             seg_data[char_idx] = int(bitstream.read(consts.EIGHTBIT_BIT_LEN), 2)
         print(f"    {seg_data}")
 
-        # When using default ECI mode, ISO/IEC 18004:2015 standard says to assume ISO-8859-1
-        return str(seg_data.decode('iso-8859-1'))
+        return seg_data
